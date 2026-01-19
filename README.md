@@ -17,7 +17,14 @@ A lightweight but opinionated orchestration workflow for autonomous AI agent sof
 * Work Assigner: Assigns the next available unit of work to a new Doer
 * Work Reviewer): Notices completed branches as they come in, runs full test suite to ensure no regressions have been introduced, then merges branch using a rebase-against-main strategy.
 
-* [Beads](https://github.com/steveyegge/beads): A lightweight task tracking system built for AI agents.
+# Other components
+
+## Work Items
+
+* Work items will be tracked using [Beads](https://github.com/steveyegge/beads): A lightweight task tracking system built for AI agents. For our purposes, each Work item is a bead.
+* Beads can be organized under "epics" for categorization.
+* Each bead has an assignment field that the Assigner will use to assign work to a Doer.
+* Each bead can contain comments that will serve as a running log for a work item. This is the one thing a Doer is allowed to change on their assigned bead.
 
 # High-level Workflow
 
@@ -65,3 +72,9 @@ Q: If multiple Doers have failed to make progress on an item after X attempts, s
 ## System
 
 Q: Maybe the user should be allowed to name their various personas. Maybe you want the Shaper to be called "Po", because it feels like a Product Owner or X-Wing pilot. Maybe you want the Reviewer to be called "Marge", because it merges. Maybe you want the Assigner to be called "Mr. Fuckleface", because it reminds you of your old manager from Burger King, Mr. Fuckleface.
+
+# Note To The Reader
+
+Friends don't let friends let AI agents write READMEs and never even bother to look them over.
+
+for shame i say, for shame
