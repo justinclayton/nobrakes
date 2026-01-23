@@ -1,31 +1,48 @@
-  Under-Specified                                                                                                                         
-                                                                                                                                          
-  1. Reviewer Behavior                                                                                                                    
-  - Does it only run tests, or also linting/static analysis/code review?                                                                  
-  - What happens when rebase against main has conflicts?                                                                                  
-  - What's the merge commit message format?                                                                                               
-  - Does it notify anyone on success/failure?                                                                                             
-                                                                                                                                          
-  2. Assigner Mechanics                                                                                                                   
-  - What triggers it? Polling on an interval? Event-driven (bead status change)?                                                          
-  - Is there a concurrency limit (max simultaneous Doers)?                                                                                
-  - README says Assigner creates the branch - but on first attempt only? Or does it check if branch exists?                               
-                                                                                                                                          
-  3. The "Dumb" Distinction                                                                                                               
-  - README calls Assigner and Reviewer "dumb" - does that mean they're simple scripts/cron jobs, or still LLM-powered but with narrow     
-  scope?                                                                                                                                  
-  - If they're not LLMs, what are they? Shell scripts? A small daemon?                                                                    
-                                                                                                                                          
-  4. Runtime Model                                                                                                                        
-  - Where does this run? Local CLI? Server? GitHub Actions?                                                                               
-  - How are Doer sessions spawned? Subprocesses? Containers?                                                                              
-  - How is state (current Doer name index, etc.) persisted?                                                                               
-                                                                                                                                          
-  5. Observability                                                                                                                        
-  - How does the human monitor progress? Dashboard? Terminal output? Notifications?                                                       
-  - How do you know when something is stuck or escalated?                                                                                 
-                                                                                                                                          
-  6. Failure Modes                                                                                                                        
-  - What if a Doer crashes without writing its log?                                                                                       
-  - What if the Assigner crashes mid-assignment (bead locked but no Doer)?                                                                
-  - Stale locks / timeouts? 
+# Outstanding Design Questions
+
+## Resolved
+
+### 1. Reviewer Behavior
+- **What does it check?** Configurable check list (tests, lint, type-check, build - user-defined). Established during scaffolding.
+- **Rebase conflicts?** Escalates to human (typed escalation with `type: conflict`).
+- **Merge commit format?** Deferred (minor detail).
+- **Notifications?** Deferred (tied to user journey implementation).
+
+### 2. Assigner Mechanics
+- **Trigger?** Event-driven (specific events TBD during event system design).
+- **Concurrency limit?** Yes, configurable.
+- **Branch creation?** Assigner creates on first attempt, checks out existing on retries.
+
+### 3. The "Dumb" Distinction
+- **What are they?** Deterministic shell scripts. No LLM involved. Simple logic only.
+
+### 4. Runtime Model
+- **Where does it run?** Local CLI + background daemon.
+- **How are Doers spawned?** Claude Code subprocesses.
+- **State persistence?** Beads (in-repo JSONL), project-level config (in-repo).
+- **Tech stack?** Shell scripts for V1.
+
+### 5. Observability
+- **How does the human monitor?** 8 user journeys identified (see DESIGN.md). Implementation details deferred.
+
+### 6. Failure Modes
+- **Doer crash?** Timeout-based: no activity for X minutes → release lock, return to Ready.
+- **Stale locks?** Same timeout mechanism handles this.
+- **Assigner crash?** Not yet specified (daemon restart would pick up where it left off since state is in beads).
+
+### 7. Test Examples
+- **Where do they live?** Separate repos that nobrakes is installed into (realistic usage pattern).
+- **Level of detail / measurement?** Deferred.
+
+---
+
+## Still Open / Deferred
+
+- Specific events for the event-driven system (emerges from implementation)
+- Mailbox/routing concept for escalation targets beyond "human"
+- Notification mechanisms (tied to user journey implementation)
+- Merge commit message format
+- Exact timeout duration for crash handling (configurable, default TBD)
+- User journey UI implementation details
+- How to measure framework effectiveness across simple vs complex examples
+- Custom persona names (low priority)
