@@ -2,48 +2,69 @@
 
 ## Resolved
 
-### 1. Reviewer Behavior
-- **What does it check?** Configurable check list (tests, lint, type-check, build - user-defined). Established during scaffolding.
-- **Rebase conflicts?** Escalates to human (typed escalation with `type: conflict`).
+### 1. Task Backend
+- **What system?** Claude Code TaskList for persistence, Itinerary CLI for shell access. Both read/write the same files.
+- **Why not bd/beads?** Shell orchestrator needs CLI access; Itinerary provides this while sharing Claude Code's native persistence format.
+- **Why not pure TaskList?** Shell orchestrator can't call TaskList tools (they're Claude Code-only). Itinerary bridges this gap.
+
+### 2. Status Model
+- **What statuses?** Aligned with Claude Code native: `pending`, `in_progress`, `completed`.
+- **Failed/blocked/escalated?** Tracked via task metadata, not status. `blocked` is implicit (pending + unmet deps). `failed` = pending + `last_outcome: "failed"`. `escalated` = pending + `escalated: true`.
+
+### 3. Reviewer Behavior
+- **What does it check?** Configurable validation suite (tests, lint, type-check, build -- user-defined). Established during scaffolding.
+- **How is it triggered?** Claude Code PostToolUse hook on `git commit`. Checks task status; no-ops unless task is marked for review.
+- **Merge strategy?** Rebase feature branch onto current main, run validation, fast-forward merge.
+- **Rebase conflicts?** Escalates to human (typed escalation event in JSONL).
+- **Concurrent merges?** Serialized via file lock.
 - **Merge commit format?** Deferred (minor detail).
-- **Notifications?** Deferred (tied to user journey implementation).
 
-### 2. Assigner Mechanics
-- **Trigger?** Event-driven (specific events TBD during event system design).
-- **Concurrency limit?** Yes, configurable.
-- **Branch creation?** Assigner creates on first attempt, checks out existing on retries.
+### 4. Orchestrator Model
+- **LLM or shell?** Shell script. Preserves the smart/dumb boundary. No LLM in orchestration loop.
+- **Parallelism?** Background `claude` processes, up to configurable concurrency limit.
+- **Why not subagents?** LLM-in-the-loop introduces non-determinism (context drift, unauthorized decisions). Shell can't have opinions, which is the point.
 
-### 3. The "Dumb" Distinction
-- **What are they?** Deterministic shell scripts. No LLM involved. Simple logic only.
+### 5. Branch Naming
+- **Convention?** `<area>/<semantic-task-id>` (e.g., `backend/backend-create-login`)
+- **Semantic ID?** Human-readable identifier assigned by the Shaper, preserved through task creation and branch naming.
 
-### 4. Runtime Model
-- **Where does it run?** Local CLI + background daemon.
-- **How are Doers spawned?** Claude Code subprocesses.
-- **State persistence?** Beads (in-repo JSONL), project-level config (in-repo).
-- **Tech stack?** Shell scripts for V1.
+### 6. Doer Permissions
+- **Skip permissions?** No. `--dangerously-skip-permissions` is out of the design entirely.
+- **Branch sandboxing?** Claude Code PreToolUse hook rejects disallowed git operations.
+- **Test boundary?** Claude Code PreToolUse hook enforces file write restrictions based on test glob patterns.
+- **General commands?** Deny-pattern approach: block known-dangerous patterns, allow everything else.
 
-### 5. Observability
-- **How does the human monitor?** 8 user journeys identified (see DESIGN.md). Implementation details deferred.
+### 7. Test Writer
+- **Separate persona?** Yes, TEST_WRITER.md with its own persona and directives.
+- **Enforcement?** Hard boundary via hooks, not just persona instructions. Test Writer can ONLY write test files; Doer can ONLY write non-test files.
+- **Test patterns?** Glob patterns in project config (e.g., `["tests/**", "src/**/*.test.ts"]`), established during scaffolding.
 
-### 6. Failure Modes
-- **Doer crash?** Timeout-based: no activity for X minutes → release lock, return to Ready.
-- **Stale locks?** Same timeout mechanism handles this.
-- **Assigner crash?** Not yet specified (daemon restart would pick up where it left off since state is in beads).
+### 8. Failure Modes
+- **Doer crash?** Timeout-based: no activity for 30 minutes (configurable) -> release claim, return to ready pool.
+- **Retry tracking?** `attempt_count` in task metadata, incremented by orchestrator on failure.
+- **Escalation trigger?** After 3 failed attempts, orchestrator sets `escalated: true` in metadata.
 
-### 7. Test Examples
-- **Where do they live?** Separate repos that nobrakes is installed into (realistic usage pattern).
-- **Level of detail / measurement?** Deferred.
+### 9. Event System
+- **Architecture?** Unified append-only JSONL event stream (`.nobrakes/EVENTS.jsonl`).
+- **V1 consumers?** Orchestrator stdout (escalations only) + Shaper reshape mode (filters JSONL for context).
+- **Future?** Any consumer can tail the stream: notification daemon, dashboard, webhooks, etc.
+
+### 10. Doer Naming
+- **Convention?** Sequential from NAMES.json (Ada through Zara), assigned globally by orchestrator.
+- **Storage?** Task `owner` field.
+
+### 11. Runtime Model
+- **Where does it run?** Local CLI + shell orchestrator.
+- **How are Doers spawned?** Claude Code subprocesses via `claude --print`.
+- **State persistence?** Claude Code TaskList files (`~/.claude/tasks/<task_list_id>/`).
+- **Tech stack?** Shell scripts for orchestration, Claude Code for agent work.
 
 ---
 
 ## Still Open / Deferred
 
-- Specific events for the event-driven system (emerges from implementation)
-- Mailbox/routing concept for escalation targets beyond "human"
-- Notification mechanisms (tied to user journey implementation)
 - Merge commit message format
-- Exact timeout duration for crash handling (configurable, default TBD)
 - User journey UI implementation details
 - How to measure framework effectiveness across simple vs complex examples
-- Custom persona names (low priority)
-- **Native Task List as beads replacement**: Claude Code has a built-in Task List system (TaskCreate, TaskGet, TaskList, TaskUpdate) with support for statuses, dependencies (blocks/blockedBy), ownership, and metadata. Task lists persist to disk and can be shared across parallel Claude Code processes by setting `CLAUDE_CODE_TASK_LIST_ID=<project-name>` as an environment variable. This could potentially replace the external `bd`/beads system, giving us dependency tracking, status management, and multi-Doer coordination natively. Worth evaluating whether the feature set is sufficient (no remove-dependency operation, no JSONL export, unclear on atomic locking guarantees).
+- Custom persona names (low priority) -- should users be able to rename personas?
+- Notification mechanisms beyond stdout (tied to future event stream consumers)
