@@ -46,3 +46,4 @@
 - User journey UI implementation details
 - How to measure framework effectiveness across simple vs complex examples
 - Custom persona names (low priority)
+- **Native Task List as beads replacement**: Claude Code has a built-in Task List system (TaskCreate, TaskGet, TaskList, TaskUpdate) with support for statuses, dependencies (blocks/blockedBy), ownership, and metadata. Task lists persist to disk and can be shared across parallel Claude Code processes by setting `CLAUDE_CODE_TASK_LIST_ID=<project-name>` as an environment variable. This could potentially replace the external `bd`/beads system, giving us dependency tracking, status management, and multi-Doer coordination natively. Worth evaluating whether the feature set is sufficient (no remove-dependency operation, no JSONL export, unclear on atomic locking guarantees).
